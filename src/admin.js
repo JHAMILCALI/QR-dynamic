@@ -245,16 +245,87 @@ function pageShell(title, body) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 560px; margin: 3rem auto; padding: 0 1rem; text-align: center; }
-  button { font-size: 1rem; padding: 0.6rem 1.2rem; border-radius: 8px; border: none; background: #2563eb; color: white; cursor: pointer; }
-  button:hover { background: #1d4ed8; }
-  input, select { font-size: 1rem; padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem; }
-  #status { margin-top: 1rem; color: #b91c1c; }
-  section { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #ddd; }
-  section:last-child { border-bottom: none; }
-  #qrPreview img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px; }
-  .size-row { display: flex; gap: 0.5rem; align-items: center; }
-  .size-row select { width: auto; flex: 1; }
+  :root {
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 3rem 1rem;
+    text-align: center;
+    background: var(--bg);
+    color: var(--text);
+  }
+  h1 { font-size: 1.85rem; margin: 0 0 2rem; }
+  h2 { font-size: 1.2rem; margin: 0 0 0.75rem; }
+  p { color: var(--muted); line-height: 1.55; margin: 0 0 1rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    text-align: left;
+  }
+  .card h2, .card > p:first-of-type { text-align: center; }
+  button, a.btn {
+    display: inline-block;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.65rem 1.4rem;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  button:hover, a.btn:hover { background: var(--accent-hover); }
+  input, select {
+    font-size: 1rem;
+    padding: 0.6rem 0.75rem;
+    width: 100%;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    color: var(--text);
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #status { margin-top: 1rem; color: #b91c1c; font-size: 0.9rem; }
+  #qrPreview { text-align: center; }
+  #qrPreview img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; background: white; padding: 0.5rem; }
+  .size-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+  .size-row label { color: var(--muted); font-size: 0.9rem; white-space: nowrap; }
+  .size-row select { width: auto; flex: 1; margin-bottom: 0; }
+  .center { text-align: center; }
+  .qr-generator-layout { display: flex; gap: 2rem; flex-wrap: wrap; }
+  .qr-form { flex: 1 1 240px; min-width: 220px; }
+  .qr-result {
+    flex: 1 1 220px;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding-left: 1.5rem;
+    border-left: 1px solid var(--border);
+  }
+  @media (max-width: 520px) {
+    .qr-result { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 1.5rem; }
+  }
+  a.subtle { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+  a.subtle:hover { text-decoration: underline; }
 </style>
 <script src="${SWA_BROWSER_CDN}"></script>
 </head>
@@ -270,38 +341,44 @@ function renderAuthPage() {
     `
   <h1>QR dinámicos</h1>
 
-  <section>
+  <div class="card">
     <h2>Generador de QR estático</h2>
     <p>Gratis, sin necesidad de cuenta. Escribe cualquier texto o URL, elige el tamaño y
        descarga la imagen. Este QR queda fijo: si luego quieres poder cambiar a dónde apunta
        sin reimprimirlo, usa la cuenta con passkey de abajo.</p>
-    <input type="text" id="staticText" placeholder="https://ejemplo.com o cualquier texto">
-    <div class="size-row">
-      <label for="staticSize">Tamaño:</label>
-      <select id="staticSize">
-        <option value="150">150 × 150</option>
-        <option value="300" selected>300 × 300</option>
-        <option value="500">500 × 500</option>
-        <option value="1000">1000 × 1000</option>
-      </select>
+    <div class="qr-generator-layout">
+      <div class="qr-form">
+        <input type="text" id="staticText" placeholder="https://ejemplo.com o cualquier texto">
+        <div class="size-row">
+          <label for="staticSize">Tamaño:</label>
+          <select id="staticSize">
+            <option value="150">150 × 150</option>
+            <option value="300" selected>300 × 300</option>
+            <option value="500">500 × 500</option>
+            <option value="1000">1000 × 1000</option>
+          </select>
+        </div>
+        <div class="center"><button id="genBtn">Generar QR</button></div>
+      </div>
+      <div class="qr-result">
+        <div id="qrPreview"></div>
+        <a id="downloadLink" href="#" class="btn" style="display:none">Descargar QR</a>
+      </div>
     </div>
-    <button id="genBtn">Generar QR</button>
-    <div id="qrPreview"></div>
-    <p><a id="downloadLink" href="#" style="display:none">Descargar QR</a></p>
-  </section>
+  </div>
 
-  <section>
+  <div class="card center">
     <h2>¿Quieres poder editarlo después?</h2>
     <p>Con una cuenta (solo tu huella, PIN o llave de seguridad, sin contraseñas) puedes crear
        QR dinámicos: el mismo código impreso, pero cambias el destino cuando quieras y ves
        cuántas veces lo escanearon.</p>
     <button id="loginBtn">Iniciar sesión con tu passkey</button>
-    <p><a href="#" id="showRegister">¿Primera vez? Crea tu cuenta</a></p>
+    <p><a href="#" id="showRegister" class="subtle">¿Primera vez? Crea tu cuenta</a></p>
     <div id="registerBox" style="display:none">
       <input type="text" id="username" placeholder="elige-un-usuario" autocomplete="username" pattern="[a-z0-9_-]{3,24}">
       <button id="registerBtn">Registrar passkey</button>
     </div>
-  </section>
+  </div>
 
   <p id="status"></p>
   <script>
@@ -317,7 +394,8 @@ function renderAuthPage() {
         downloadLink.style.display = 'none';
         return;
       }
-      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(text);
+      const margin = Math.min(50, Math.max(10, Math.round(size * 0.08)));
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&margin=' + margin + '&data=' + encodeURIComponent(text);
       preview.innerHTML = '<img src="' + qrUrl + '" width="' + size + '" height="' + size + '" alt="QR generado">';
       downloadLink.textContent = 'Descargar QR (' + size + 'x' + size + ')';
       downloadLink.style.display = 'inline-block';
