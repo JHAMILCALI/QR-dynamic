@@ -5,4 +5,4 @@ compatibility_date = "2024-09-23"
 [[d1_databases]]
 binding = "DB"
 database_name = "qr-dinamicos-db"
-database_id = "REEMPLAZA_CON_TU_DATABASE_ID"
+database_id = "b64acb2d-70e2-4f8b-8807-670294adb372"

@@ -10,6 +10,10 @@
     "db:migrate:remote": "wrangler d1 execute qr-dinamicos-db --remote --file=./migrations/0001_init.sql"
   },
   "devDependencies": {
-    "wrangler": "^3.90.0"
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "^14.0.3",
+    "jose": "^6.2.12"
   }
 }
