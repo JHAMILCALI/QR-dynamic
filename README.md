@@ -12,6 +12,12 @@ contraseñas, solo un nombre de usuario y tu huella/PIN/llave de seguridad. Cada
 usuario solo ve y edita sus propios códigos QR; el resto queda invisible para
 los demás. Todo corre en el plan gratuito de Cloudflare.
 
+La misma página raíz (`/`) también trae un **generador de QR estático**, sin
+necesidad de cuenta: cualquiera puede escribir un texto o URL, elegir el
+tamaño (150 a 1000 px) y descargar la imagen al momento. Ese QR queda fijo
+para siempre (no se puede editar el destino después) — para eso está la
+parte de cuenta/passkey.
+
 ## Puesta en marcha
 
 1. Instalar dependencias:

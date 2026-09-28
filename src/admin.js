@@ -245,11 +245,16 @@ function pageShell(title, body) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 4rem auto; padding: 0 1rem; text-align: center; }
+  body { font-family: system-ui, sans-serif; max-width: 560px; margin: 3rem auto; padding: 0 1rem; text-align: center; }
   button { font-size: 1rem; padding: 0.6rem 1.2rem; border-radius: 8px; border: none; background: #2563eb; color: white; cursor: pointer; }
   button:hover { background: #1d4ed8; }
-  input { font-size: 1rem; padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem; }
+  input, select { font-size: 1rem; padding: 0.5rem; width: 100%; box-sizing: border-box; margin-bottom: 1rem; }
   #status { margin-top: 1rem; color: #b91c1c; }
+  section { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #ddd; }
+  section:last-child { border-bottom: none; }
+  #qrPreview img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px; }
+  .size-row { display: flex; gap: 0.5rem; align-items: center; }
+  .size-row select { width: auto; flex: 1; }
 </style>
 <script src="${SWA_BROWSER_CDN}"></script>
 </head>
@@ -264,15 +269,76 @@ function renderAuthPage() {
     "Entrar — QR dinámicos",
     `
   <h1>QR dinámicos</h1>
-  <button id="loginBtn">Iniciar sesión con tu passkey</button>
-  <p><a href="#" id="showRegister">¿Primera vez? Crea tu cuenta</a></p>
-  <div id="registerBox" style="display:none">
-    <input type="text" id="username" placeholder="elige-un-usuario" autocomplete="username" pattern="[a-z0-9_-]{3,24}">
-    <button id="registerBtn">Registrar passkey</button>
-  </div>
+
+  <section>
+    <h2>Generador de QR estático</h2>
+    <p>Gratis, sin necesidad de cuenta. Escribe cualquier texto o URL, elige el tamaño y
+       descarga la imagen. Este QR queda fijo: si luego quieres poder cambiar a dónde apunta
+       sin reimprimirlo, usa la cuenta con passkey de abajo.</p>
+    <input type="text" id="staticText" placeholder="https://ejemplo.com o cualquier texto">
+    <div class="size-row">
+      <label for="staticSize">Tamaño:</label>
+      <select id="staticSize">
+        <option value="150">150 × 150</option>
+        <option value="300" selected>300 × 300</option>
+        <option value="500">500 × 500</option>
+        <option value="1000">1000 × 1000</option>
+      </select>
+    </div>
+    <button id="genBtn">Generar QR</button>
+    <div id="qrPreview"></div>
+    <p><a id="downloadLink" href="#" style="display:none">Descargar QR</a></p>
+  </section>
+
+  <section>
+    <h2>¿Quieres poder editarlo después?</h2>
+    <p>Con una cuenta (solo tu huella, PIN o llave de seguridad, sin contraseñas) puedes crear
+       QR dinámicos: el mismo código impreso, pero cambias el destino cuando quieras y ves
+       cuántas veces lo escanearon.</p>
+    <button id="loginBtn">Iniciar sesión con tu passkey</button>
+    <p><a href="#" id="showRegister">¿Primera vez? Crea tu cuenta</a></p>
+    <div id="registerBox" style="display:none">
+      <input type="text" id="username" placeholder="elige-un-usuario" autocomplete="username" pattern="[a-z0-9_-]{3,24}">
+      <button id="registerBtn">Registrar passkey</button>
+    </div>
+  </section>
+
   <p id="status"></p>
   <script>
     const statusEl = document.getElementById('status');
+
+    document.getElementById('genBtn').addEventListener('click', () => {
+      const text = document.getElementById('staticText').value.trim();
+      const size = document.getElementById('staticSize').value;
+      const preview = document.getElementById('qrPreview');
+      const downloadLink = document.getElementById('downloadLink');
+      if (!text) {
+        preview.innerHTML = '';
+        downloadLink.style.display = 'none';
+        return;
+      }
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(text);
+      preview.innerHTML = '<img src="' + qrUrl + '" width="' + size + '" height="' + size + '" alt="QR generado">';
+      downloadLink.textContent = 'Descargar QR (' + size + 'x' + size + ')';
+      downloadLink.style.display = 'inline-block';
+      downloadLink.onclick = async (e) => {
+        e.preventDefault();
+        try {
+          const resp = await fetch(qrUrl);
+          const blob = await resp.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objectUrl;
+          a.download = 'qr-' + size + 'x' + size + '.png';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(objectUrl);
+        } catch (err) {
+          window.open(qrUrl, '_blank');
+        }
+      };
+    });
 
     document.getElementById('showRegister').addEventListener('click', (e) => {
       e.preventDefault();
