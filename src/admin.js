@@ -5,7 +5,6 @@ import {
   setActive,
   codeExists,
   usernameExists,
-  getCredentialsForUsername,
   getCredentialById,
   saveCredential,
   updateCredentialCounter,
@@ -64,7 +63,17 @@ function isHttpUrl(value) {
 export async function handleAdmin(request, env, url) {
   const secure = !isLocalHost(url.hostname);
 
-  if (request.method === "POST" && url.pathname === "/admin/auth/options") {
+  if (request.method === "POST" && url.pathname === "/admin/auth/login-options") {
+    const options = await buildAuthenticationOptions({ url, allowCredentials: undefined });
+    const headers = new Headers({ "content-type": "application/json" });
+    headers.append(
+      "Set-Cookie",
+      challengeCookieHeader({ challenge: options.challenge, type: "login" }, { secure })
+    );
+    return new Response(JSON.stringify(options), { headers });
+  }
+
+  if (request.method === "POST" && url.pathname === "/admin/auth/register-options") {
     const body = await request.json().catch(() => ({}));
     const username = normalizeUsername(body.username);
     if (!isValidUsername(username)) {
@@ -73,38 +82,19 @@ export async function handleAdmin(request, env, url) {
         { status: 400 }
       );
     }
-
-    const existing = await getCredentialsForUsername(env.DB, username);
-    const headers = new Headers({ "content-type": "application/json" });
-
-    if (existing.length === 0) {
-      const options = await buildRegistrationOptions({
-        url,
-        username,
-        existingCredentials: [],
-      });
-      headers.append(
-        "Set-Cookie",
-        challengeCookieHeader(
-          { challenge: options.challenge, username, type: "register" },
-          { secure }
-        )
-      );
-      return new Response(JSON.stringify({ type: "register", options }), { headers });
+    if (await usernameExists(env.DB, username)) {
+      return new Response("Ese nombre de usuario ya fue tomado, elige otro", { status: 409 });
     }
-
-    const options = await buildAuthenticationOptions({
-      url,
-      allowCredentials: existing.map((c) => ({ id: c.id })),
-    });
+    const options = await buildRegistrationOptions({ url, username, existingCredentials: [] });
+    const headers = new Headers({ "content-type": "application/json" });
     headers.append(
       "Set-Cookie",
       challengeCookieHeader(
-        { challenge: options.challenge, username, type: "login" },
+        { challenge: options.challenge, username, type: "register" },
         { secure }
       )
     );
-    return new Response(JSON.stringify({ type: "login", options }), { headers });
+    return new Response(JSON.stringify(options), { headers });
   }
 
   if (request.method === "POST" && url.pathname === "/admin/auth/verify") {
@@ -144,7 +134,7 @@ export async function handleAdmin(request, env, url) {
 
     if (type === "login") {
       const stored = await getCredentialById(env.DB, response.id);
-      if (!stored || stored.username !== username) {
+      if (!stored) {
         return new Response("Passkey no reconocida", { status: 400 });
       }
       const storedCredential = {
@@ -167,7 +157,7 @@ export async function handleAdmin(request, env, url) {
         return new Response("No se pudo verificar la passkey", { status: 400 });
       }
       await updateCredentialCounter(env.DB, stored.id, verification.authenticationInfo.newCounter);
-      const token = await createSessionToken(env, { username });
+      const token = await createSessionToken(env, { username: stored.username });
       const headers = new Headers({ "content-type": "application/json" });
       headers.append("Set-Cookie", sessionCookieHeader(token, { secure }));
       headers.append("Set-Cookie", clearChallengeCookieHeader({ secure }));
@@ -181,25 +171,13 @@ export async function handleAdmin(request, env, url) {
     return new Response(null, {
       status: 303,
       headers: {
-        Location: "/admin",
+        Location: "/",
         "Set-Cookie": clearSessionCookieHeader({ secure }),
       },
     });
   }
 
   const session = await getSession(request, env);
-
-  if (url.pathname === "/admin" && request.method === "GET") {
-    if (!session) {
-      return new Response(renderAuthPage(), {
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    }
-    const codes = await listCodes(env.DB, session.username);
-    return new Response(renderDashboard(url.origin, session.username, codes), {
-      headers: { "content-type": "text/html; charset=utf-8" },
-    });
-  }
 
   if (!session) return new Response("No autorizado", { status: 401 });
 
@@ -221,7 +199,7 @@ export async function handleAdmin(request, env, url) {
       return new Response("Ese código ya existe, elige otro", { status: 400 });
     }
     await createCode(env.DB, { code, destination, ownerUsername: session.username });
-    return Response.redirect(url.origin + "/admin", 303);
+    return Response.redirect(url.origin + "/", 303);
   }
 
   if (request.method === "POST" && url.pathname === "/admin/update") {
@@ -232,7 +210,7 @@ export async function handleAdmin(request, env, url) {
       return new Response("Falta un destino http(s) válido", { status: 400 });
     }
     await updateDestination(env.DB, { code, destination, ownerUsername: session.username });
-    return Response.redirect(url.origin + "/admin", 303);
+    return Response.redirect(url.origin + "/", 303);
   }
 
   if (request.method === "POST" && url.pathname === "/admin/toggle") {
@@ -240,10 +218,23 @@ export async function handleAdmin(request, env, url) {
     const code = form.get("code")?.toString();
     const active = form.get("active") === "1";
     if (code) await setActive(env.DB, { code, active, ownerUsername: session.username });
-    return Response.redirect(url.origin + "/admin", 303);
+    return Response.redirect(url.origin + "/", 303);
   }
 
   return new Response("No encontrado", { status: 404 });
+}
+
+export async function renderHome(request, env, url) {
+  const session = await getSession(request, env);
+  if (!session) {
+    return new Response(renderAuthPage(), {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  }
+  const codes = await listCodes(env.DB, session.username);
+  return new Response(renderDashboard(url.origin, session.username, codes), {
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
 }
 
 function pageShell(title, body) {
@@ -273,38 +264,62 @@ function renderAuthPage() {
     "Entrar — QR dinámicos",
     `
   <h1>QR dinámicos</h1>
-  <p>Escribe tu nombre de usuario. Si es la primera vez, se crea tu cuenta ahí mismo y
-     registras tu huella, PIN o llave de seguridad; si ya existe, entras con lo mismo.</p>
-  <input type="text" id="username" placeholder="tu-usuario" autocomplete="username" pattern="[a-z0-9_-]{3,24}">
-  <button id="goBtn">Continuar</button>
+  <button id="loginBtn">Iniciar sesión con tu passkey</button>
+  <p><a href="#" id="showRegister">¿Primera vez? Crea tu cuenta</a></p>
+  <div id="registerBox" style="display:none">
+    <input type="text" id="username" placeholder="elige-un-usuario" autocomplete="username" pattern="[a-z0-9_-]{3,24}">
+    <button id="registerBtn">Registrar passkey</button>
+  </div>
   <p id="status"></p>
   <script>
-    document.getElementById('goBtn').addEventListener('click', async () => {
-      const status = document.getElementById('status');
-      const username = document.getElementById('username').value.trim().toLowerCase();
-      status.textContent = '';
+    const statusEl = document.getElementById('status');
+
+    document.getElementById('showRegister').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('registerBox').style.display = 'block';
+      e.target.style.display = 'none';
+    });
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      statusEl.textContent = '';
       try {
-        const optsRes = await fetch('/admin/auth/options', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username }),
-        });
+        const optsRes = await fetch('/admin/auth/login-options', { method: 'POST' });
         if (!optsRes.ok) throw new Error(await optsRes.text());
-        const { type, options } = await optsRes.json();
-
-        const response = type === 'register'
-          ? await SimpleWebAuthnBrowser.startRegistration({ optionsJSON: options })
-          : await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: options });
-
+        const options = await optsRes.json();
+        const response = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: options });
         const verifyRes = await fetch('/admin/auth/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(response),
         });
         if (!verifyRes.ok) throw new Error(await verifyRes.text());
-        window.location.href = '/admin';
+        window.location.href = '/';
       } catch (err) {
-        status.textContent = 'Error: ' + err.message;
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+    });
+
+    document.getElementById('registerBtn').addEventListener('click', async () => {
+      statusEl.textContent = '';
+      const username = document.getElementById('username').value.trim().toLowerCase();
+      try {
+        const optsRes = await fetch('/admin/auth/register-options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username }),
+        });
+        if (!optsRes.ok) throw new Error(await optsRes.text());
+        const options = await optsRes.json();
+        const response = await SimpleWebAuthnBrowser.startRegistration({ optionsJSON: options });
+        const verifyRes = await fetch('/admin/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(response),
+        });
+        if (!verifyRes.ok) throw new Error(await verifyRes.text());
+        window.location.href = '/';
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
       }
     });
   </script>`

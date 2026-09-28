@@ -41,7 +41,7 @@ export async function getSession(request, env) {
 export function sessionCookieHeader(token, { secure }) {
   const parts = [
     `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
-    "Path=/admin",
+    "Path=/",
     "HttpOnly",
     "SameSite=Strict",
     `Max-Age=${SESSION_DAYS * 24 * 60 * 60}`,
@@ -53,7 +53,7 @@ export function sessionCookieHeader(token, { secure }) {
 export function clearSessionCookieHeader({ secure }) {
   const parts = [
     `${SESSION_COOKIE}=`,
-    "Path=/admin",
+    "Path=/",
     "HttpOnly",
     "SameSite=Strict",
     "Max-Age=0",

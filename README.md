@@ -1,9 +1,9 @@
 # QR dinámicos
 
 Sistema de códigos QR dinámicos: el QR impreso apunta siempre a la misma URL corta
-(`https://tu-worker.workers.dev/CODIGO`); el destino real se guarda en una base de
-datos y se puede cambiar en cualquier momento desde el panel `/admin`, sin
-reimprimir el QR.
+(`https://qrgg.<tu-subdominio>.workers.dev/CODIGO`); el destino real se guarda en una base de
+datos y se puede cambiar en cualquier momento desde el panel (entrando por la
+raíz del sitio, `/`), sin reimprimir el QR.
 
 Arquitectura: **Cloudflare Workers** (redirección HTTP 302 real, en el borde) +
 **Cloudflare D1** (base de datos SQLite gratis) + panel de administración propio,
@@ -57,19 +57,20 @@ los demás. Todo corre en el plan gratuito de Cloudflare.
    ```bash
    pnpm dev
    ```
-   Abre `http://localhost:8787/admin` (usa `localhost`, no `127.0.0.1`, para que las passkeys
-   funcionen bien). Escribe un nombre de usuario: como no existe todavía, te deja registrar tu
-   passkey (Windows Hello, huella o llave de seguridad) ahí mismo — no hace falta ningún código
-   ni contraseña. La próxima vez que entres con ese mismo nombre de usuario, te pedirá la
-   passkey para iniciar sesión en vez de registrar una nueva.
+   Abre `http://localhost:8787/` (usa `localhost`, no `127.0.0.1`, para que las passkeys
+   funcionen bien — visitar `/admin` también funciona, solo te redirige a `/`). La primera vez,
+   pulsa "¿Primera vez? Crea tu cuenta", escribe un nombre de usuario y registra tu passkey
+   (Windows Hello, huella o llave de seguridad) — no hace falta ningún código ni contraseña.
+   Las siguientes veces, un solo botón "Iniciar sesión con tu passkey" te deja entrar sin
+   escribir nada: el navegador te muestra tu propia passkey guardada para elegirla.
 
 7. Desplegar:
    ```bash
    pnpm worker:deploy
    ```
-   Wrangler imprime la URL pública, algo como `https://qr-dinamicos.<tu-subdominio>.workers.dev`.
-   Entra ahí a `/admin` y regístrate de nuevo con tu usuario — el registro de la passkey es
-   específico de cada dominio, la que hiciste en `localhost` no sirve en producción.
+   Wrangler imprime la URL pública, algo como `https://qrgg.<tu-subdominio>.workers.dev`.
+   Entra ahí (a la raíz del sitio) y regístrate de nuevo con tu usuario — el registro de la
+   passkey es específico de cada dominio, la que hiciste en `localhost` no sirve en producción.
 
 8. Ya dentro del panel, crea tu primer código (deja el campo "código" vacío para que se genere
    uno al azar), descarga la imagen QR generada e imprímela o compártela. Para "editar" el QR
@@ -78,21 +79,26 @@ los demás. Todo corre en el plan gratuito de Cloudflare.
 
 ## Notas
 
-- El login usa **passkeys (WebAuthn)**: la librería `@simplewebauthn/server` verifica todo
-  dentro del Worker, y en el navegador se carga `@simplewebauthn/browser` desde jsDelivr
-  (CDN) para hablar con `navigator.credentials`. La sesión se guarda como una cookie
+- El login usa **passkeys (WebAuthn) sin usuario**: `/admin/auth/login-options` genera un
+  desafío "discoverable" (sin restringir a un usuario concreto) y el navegador muestra su
+  propio selector de passkeys guardadas para este sitio — quien inicia sesión no escribe
+  nada, solo elige la suya. El servidor identifica de quién es por el ID de la credencial
+  que el navegador devuelve, no por texto que el usuario tipeó. La librería
+  `@simplewebauthn/server` verifica todo dentro del Worker, y en el navegador se carga
+  `@simplewebauthn/browser` desde jsDelivr (CDN). La sesión se guarda como una cookie
   `HttpOnly` con un JWT (librería `jose`), válida 30 días.
+- El nombre de usuario **solo se pide al registrarte** (para tener un identificador legible
+  y evitar duplicados), nunca para iniciar sesión.
 - **Registro abierto**: cualquiera que escriba un nombre de usuario que no exista puede
   crear una cuenta ahí mismo — no hay invitación ni aprobación previa. La seguridad no
   depende de impedir el registro, sino de que nadie puede iniciar sesión como otro usuario
   sin su passkey física, y cada usuario solo ve sus propios códigos (`owner_username` en
   `qr_codes`). Si más adelante quieres cerrar el registro (por ejemplo, con una lista de
   usuarios permitidos), avísame.
-- Un mismo nombre de usuario puede tener varias passkeys (por ejemplo, una por dispositivo):
-  simplemente inicia sesión primero con una ya registrada y añade otra desde ahí — el código
-  actual asocia cada passkey nueva al nombre de usuario que se escribió al momento de
-  registrarla, así que si quieres ese flujo de "añadir dispositivo estando ya logueado"
-  dímelo y lo agrego explícitamente en el panel.
+- Para que la passkey aparezca en el selector del navegador, el autenticador debe guardarla
+  como "discoverable" (resident key) — se lo pedimos con `residentKey: "preferred"` al
+  registrar, que es lo que hacen por defecto Windows Hello, Touch ID y la mayoría de llaves
+  de seguridad modernas.
 - La imagen del QR se genera con la API pública gratuita `api.qrserver.com`.
 - Cada escaneo se registra de forma asíncrona en la tabla `scans` (fecha, país,
   tipo de dispositivo, referrer) y el panel muestra el total de escaneos y la

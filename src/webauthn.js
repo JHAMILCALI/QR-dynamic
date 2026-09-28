@@ -12,7 +12,7 @@ export function challengeCookieHeader(state, { secure }) {
   const value = encodeURIComponent(JSON.stringify(state));
   const parts = [
     `${CHALLENGE_COOKIE}=${value}`,
-    "Path=/admin",
+    "Path=/",
     "HttpOnly",
     "SameSite=Strict",
     "Max-Age=300",
@@ -24,7 +24,7 @@ export function challengeCookieHeader(state, { secure }) {
 export function clearChallengeCookieHeader({ secure }) {
   const parts = [
     `${CHALLENGE_COOKIE}=`,
-    "Path=/admin",
+    "Path=/",
     "HttpOnly",
     "SameSite=Strict",
     "Max-Age=0",
