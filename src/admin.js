@@ -301,7 +301,24 @@ function pageShell(title, body) {
     color: var(--text);
   }
   input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  #status { margin-top: 1rem; color: #b91c1c; font-size: 0.9rem; }
+  #toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: #1f2937;
+    color: white;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    max-width: 90%;
+    z-index: 1000;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   #qrPreview { text-align: center; }
   #qrPreview img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; background: white; padding: 0.5rem; }
   .size-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
@@ -380,9 +397,23 @@ function renderAuthPage() {
     </div>
   </div>
 
-  <p id="status"></p>
+  <div id="toast"></div>
   <script>
-    const statusEl = document.getElementById('status');
+    let toastTimer;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+    function friendlyError(err) {
+      if (err && err.name === 'NotAllowedError') return 'Se canceló o no se completó la verificación.';
+      if (err && err.name === 'InvalidStateError') return 'Esa passkey ya está registrada en este dispositivo.';
+      if (err && err.name === 'SecurityError') return 'Este sitio no es válido para passkeys.';
+      const msg = (err && err.message) || 'Ocurrió un error, intenta de nuevo.';
+      return msg.length > 80 ? 'Ocurrió un error, intenta de nuevo.' : msg;
+    }
 
     document.getElementById('genBtn').addEventListener('click', () => {
       const text = document.getElementById('staticText').value.trim();
@@ -425,7 +456,6 @@ function renderAuthPage() {
     });
 
     document.getElementById('loginBtn').addEventListener('click', async () => {
-      statusEl.textContent = '';
       try {
         const optsRes = await fetch('/admin/auth/login-options', { method: 'POST' });
         if (!optsRes.ok) throw new Error(await optsRes.text());
@@ -439,12 +469,11 @@ function renderAuthPage() {
         if (!verifyRes.ok) throw new Error(await verifyRes.text());
         window.location.href = '/';
       } catch (err) {
-        statusEl.textContent = 'Error: ' + err.message;
+        showToast(friendlyError(err));
       }
     });
 
     document.getElementById('registerBtn').addEventListener('click', async () => {
-      statusEl.textContent = '';
       const username = document.getElementById('username').value.trim().toLowerCase();
       try {
         const optsRes = await fetch('/admin/auth/register-options', {
@@ -463,7 +492,7 @@ function renderAuthPage() {
         if (!verifyRes.ok) throw new Error(await verifyRes.text());
         window.location.href = '/';
       } catch (err) {
-        statusEl.textContent = 'Error: ' + err.message;
+        showToast(friendlyError(err));
       }
     });
   </script>`
