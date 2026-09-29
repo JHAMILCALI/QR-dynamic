@@ -78,10 +78,12 @@ parte de cuenta/passkey.
    Entra ahí (a la raíz del sitio) y regístrate de nuevo con tu usuario — el registro de la
    passkey es específico de cada dominio, la que hiciste en `localhost` no sirve en producción.
 
-8. Ya dentro del panel, crea tu primer código (deja el campo "código" vacío para que se genere
-   uno al azar), descarga la imagen QR generada e imprímela o compártela. Para "editar" el QR
-   más adelante, solo cambia el campo destino en la misma fila y pulsa Guardar — el código
-   impreso sigue funcionando igual. Cada usuario solo ve sus propios códigos en la tabla.
+8. Ya dentro del panel, usa los botones **Estáticos** y **Dinámicos** para elegir el tipo de QR.
+   En Dinámicos, crea tu primer código (el identificador corto se genera automáticamente)
+   y descarga el PNG desde su tarjeta. Para cambiar el destino más adelante, escribe
+   otra URL en esa tarjeta y pulsa **Guardar destino**: el QR impreso sigue funcionando igual.
+   **Borrar URL** solo limpia el campo de texto para escribir otro enlace; no elimina el código.
+   En Estáticos puedes generar y descargar un QR sin salir del panel.
 
 ## Notas
 

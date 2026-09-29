@@ -33,6 +33,13 @@ export async function listCodes(db, ownerUsername) {
   return results;
 }
 
+export async function getCodeForOwner(db, code, ownerUsername) {
+  return db
+    .prepare("SELECT code FROM qr_codes WHERE code = ? AND owner_username = ?")
+    .bind(code, ownerUsername)
+    .first();
+}
+
 export async function createCode(db, { code, destination, ownerUsername }) {
   await db
     .prepare(

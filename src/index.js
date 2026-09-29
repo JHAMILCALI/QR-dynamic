@@ -1,5 +1,6 @@
 import { getDestination, logScan } from "./db.js";
 import { handleAdmin, renderHome } from "./admin.js";
+import { qrDownloadResponse } from "./qrcode.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -11,6 +12,15 @@ export default {
 
     if (url.pathname === "/admin" && request.method === "GET") {
       return Response.redirect(url.origin + "/", 302);
+    }
+
+    if (url.pathname === "/download/static" && request.method === "GET") {
+      const value = url.searchParams.get("text")?.trim();
+      const size = Number(url.searchParams.get("size"));
+      if (!value || value.length > 2048 || ![150, 300, 500, 1000].includes(size)) {
+        return new Response("Texto o tamaño inválido", { status: 400 });
+      }
+      return qrDownloadResponse(value, size, `qr-estatico-${size}.png`);
     }
 
     if (url.pathname.startsWith("/admin/")) {
